@@ -139,30 +139,30 @@ public class LongNumber {
         return removeExtraZeros(result);
     }
 
-
     public LongNumber sum(LongNumber second) {
-        //1. знак один - просто сумма с сохранением
+        // 1. знаки одинаковые — просто складываем модули и сохраняем знак
         if (isItPositive == second.isItPositive) {
             return new LongNumber(numbersArrSum(second.numbers), isItPositive);
         }
-        //2. знаки разные - из большего массива вычитаем меньший, сохраняем знак большего
-        return switch (isItPositive ? isItMoreThan(second.negate()) : negate().isItMoreThan(second)) {
+        // 2. знаки разные — сравниваем модули, из большего вычитаем меньший и берём его знак
+        return switch (abs().isItMoreThan(second.abs())) {
             case 1 -> new LongNumber(numbersArrDiff(second.numbers), isItPositive);
             case -1 -> new LongNumber(second.numbersArrDiff(numbers), second.isItPositive);
-            default -> new LongNumber(new byte[]{0}, true);
+            default -> zero();
         };
     }
+
 
     public LongNumber sub(LongNumber second) {
         return sum(second.negate());
     }
 
     private LongNumber tenMultiply(int power) {
-        int len = numbers.length;
-        byte[] newNumbers = Arrays.copyOf(numbers, len + power);
-        for (int i = len; i < len + power; i++) {
-            newNumbers[i] = 0;
+        if (power == 0 || isZero()) {
+            return new LongNumber(numbers, isItPositive);
         }
+        byte[] newNumbers = new byte[numbers.length + power];
+        System.arraycopy(numbers, 0, newNumbers, power, numbers.length);
         return new LongNumber(newNumbers, isItPositive);
     }
 
@@ -187,12 +187,16 @@ public class LongNumber {
     }
 
     public LongNumber multiply(LongNumber second) {
-        LongNumber result = digitMultiply(second.numbers[0]);
-        for (int i = 1; i < second.numbers.length; i++) {
-            result = result.sum(digitMultiply(second.numbers[i]).tenMultiply(i));
+        if (this.isZero() || second.isZero()) {
+            return zero();
         }
-        if (!second.isItPositive && !(result.numbers.length == 1 && result.numbers[0] == 0)) result = result.negate();
-        return result;
+        LongNumber thisAbs = this.abs();
+        LongNumber result = thisAbs.digitMultiply(second.numbers[0]);
+        for (int i = 1; i < second.numbers.length; i++) {
+            result = result.sum(thisAbs.digitMultiply(second.numbers[i]).tenMultiply(i));
+        }
+        boolean resultPositive = (this.isItPositive == second.isItPositive);
+        return resultPositive ? result : result.negate();
     }
 
     //деление с остатком
@@ -221,6 +225,9 @@ public class LongNumber {
             return new divideResult(zero(), dividend);
         }
 
+        //1003232
+        // 213000
+        //
         LongNumber finalDivisor = divisor.tenMultiply(tenPower);
 
         // D * 10^tenPower> N, пробуем на разряд ниже
@@ -263,7 +270,7 @@ public class LongNumber {
         LongNumber divRemainder = new LongNumber(this);
         LongNumber divResult = zero();
         //пока делимое больше делителя
-        while (divRemainder.isItMoreThan(divider) == 1) {
+        while (divRemainder.isItMoreThan(divider) != -1) { // >= 0
             divideResult stepResult = divRemainder.divideStep(dividers);
             divResult = divResult.sum(stepResult.result);
             divRemainder = stepResult.remainder;
